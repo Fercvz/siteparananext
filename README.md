@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SiteParana Next (eParana)
 
-## Getting Started
+Projeto Next.js com App Router, Prisma e PWA. Interface replicada do site original e preparada para uso comercial.
 
-First, run the development server:
+## Stack
+- Next.js (App Router)
+- TypeScript
+- Tailwind (instalado; estilos atuais em CSS legado)
+- Autenticacao (Supabase)
+- Postgres + Prisma
+- Scraper Python (FastAPI)
 
+## Requisitos
+- Node.js 20+
+- Postgres
+- Conta Supabase
+- Python 3.11+ (para o scraper)
+
+## Setup (Next.js)
+1) Instale dependencias:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2) Configure variaveis de ambiente:
+```bash
+cp .env.example .env
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3) Configure o banco e rode migrations:
+```bash
+npx prisma migrate dev --name init
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4) Seed inicial (opcional):
+```bash
+npx prisma db seed
+```
 
-## Learn More
+5) Suba o projeto:
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Autenticacao
+- Configure a autenticacao via Supabase quando conectar o banco.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scraper Python
+O scraper fica em `scraper-python/`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Instalar dependencias
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-## Deploy on Vercel
+### Executar
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Endpoints
+- `GET /health`
+- `POST /run/ibge`
+- `POST /run/tse`
+- `POST /run/all`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Defina `SCRAPER_SERVICE_URL` no Next apontando para esse servico.
+
+## Cron
+Use o endpoint `POST /api/sync/cron` com `INTERNAL_CRON_SECRET`.
+Exemplo (Vercel Cron):
+
+```bash
+curl -X POST "https://seu-dominio.vercel.app/api/sync/cron?secret=SEU_SEGREDO"
+```
+
+## Deploy
+### Next.js (Vercel)
+- Configure as env vars do `.env.example`.
+- Rode `npx prisma migrate deploy` no ambiente.
+
+### Scraper (Render/Fly)
+- Suba `scraper-python` como servico web.
+- Configure `DATABASE_URL`.
+
+## Observacoes
+- PWA usa `public/manifest.json` e `public/service-worker.js`.
+- A tela inicial do sistema redireciona para `/home`.

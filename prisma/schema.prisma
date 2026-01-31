@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DatasetSource {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  description String?
+  runs        DatasetRun[]
+  records     DatasetRecord[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model DatasetRun {
+  id           String         @id @default(cuid())
+  sourceId     String
+  source       DatasetSource  @relation(fields: [sourceId], references: [id])
+  status       String
+  startedAt    DateTime       @default(now())
+  finishedAt   DateTime?
+  logs         String?
+  errorMessage String?
+}
+
+model DatasetRecord {
+  id            String         @id @default(cuid())
+  sourceId      String
+  source        DatasetSource  @relation(fields: [sourceId], references: [id])
+  referenceDate DateTime?
+  payloadJson   Json
+  createdAt     DateTime       @default(now())
+}
+
+model Investment {
+  id          String   @id @default(cuid())
+  cityId      String
+  cityName    String
+  year        Int
+  value       Float
+  area        String?
+  type        String?
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model Vote {
+  id        String   @id @default(cuid())
+  cityId    String
+  year      Int
+  votes     Int
+  createdAt DateTime @default(now())
+}
+
+model CampaignAggregate {
+  id        String   @id @default(cuid())
+  cityId    String   @unique
+  votes     Int
+  money     Float
+  updatedAt DateTime @updatedAt
+}

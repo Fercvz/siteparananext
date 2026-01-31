@@ -1,0 +1,826 @@
+"use client";
+
+import Script from "next/script";
+
+const homeMarkup = `
+    <div class="app-container">
+        <!-- Top Stats Bar (Admin Only) -->
+        <div id="campaign-stats" class="campaign-stats">
+            <div class="admin-actions">
+                <!-- Botão Ver Tabela removido a pedido do usuário -->
+                <div class="import-wrapper" style="display:inline-block;">
+                    <input type="file" id="file-import" accept=".xlsx,.xls" hidden />
+                    <button id="btn-import" class="btn-icon" title="Importar Excel Campanha">📂 Importar
+                        Campanha</button>
+                </div>
+                <div class="header-divider"></div>
+                <div class="import-wrapper" style="display:inline-block;">
+                    <input type="file" id="file-import-investments" accept=".xlsx,.xls" hidden />
+                    <button id="btn-import-investments" class="btn-icon" title="Importar Excel Investimentos">💰
+                        Importar Investimentos</button>
+                </div>
+                <button id="btn-analytics" class="btn-icon btn-analytics" title="Dashboard de Investimentos">📈
+                    Analytics</button>
+                <button id="btn-delete-data" class="btn-icon btn-delete" title="Limpar Dados do Sistema">🗑️
+                    Limpar Dados</button>
+            </div>
+        </div>
+
+        <!-- Login Button Removed (Moved to Header) -->
+
+        <header class="site-header">
+            <div class="brand-container">
+                <h1>eParaná</h1>
+            </div>
+
+            <div class="header-tools">
+                <div class="search-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="city-search" placeholder="Buscar cidade..." list="cities-list"
+                        autocomplete="off">
+                    <datalist id="cities-list"></datalist>
+                </div>
+
+                <button id="theme-toggle" aria-label="Alternar Tema">🌙</button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+
+            <!-- Mobile Toggle Button for Filters -->
+            <button id="toggle-filters-btn" aria-label="Abrir Filtros">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    style="pointer-events: none;">
+                    <path d="M4 6H20M4 12H20M4 18H20" stroke="white" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+
+            <!-- Mobile Overlay -->
+            <div id="mobile-overlay" class="mobile-overlay"></div>
+
+            <!-- Left Sidebar (Filters) -->
+            <aside class="left-sidebar" id="left-sidebar">
+
+                <!-- Mobile Header with Close Button -->
+                <div class="left-sidebar-mobile-header">
+                    <span class="mobile-sidebar-title">Filtros</span>
+                    <button id="close-left-sidebar" class="close-left-sidebar-btn"
+                        aria-label="Fechar filtros">×</button>
+                </div>
+
+                <!-- Conteúdo Rolável -->
+                <div class="sidebar-scroll-area">
+                    <div class="sidebar-section visualization">
+                        <h3>Visualização</h3>
+                        <div class="filter-group">
+                            <select id="vis-mode">
+                                <option value="none">Padrão</option>
+                                <option value="party">Partidos Políticos</option>
+                                <option value="heatmap-pop">Habitantes</option>
+                                <option value="heatmap-pib">PIB per capita</option>
+                                <option value="campaign-data">Dados de Campanha</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <!-- Legenda das Visualizações (será populada pelo JS) -->
+                        <div id="sidebar-legend-container" class="legend-box hidden"></div>
+
+                        <!-- Filtros de Dados Importados -->
+                        <div id="campaign-filters" class="campaign-filters-section">
+                            <h4>Filtros de Dados</h4>
+
+                            <div class="filter-group">
+                                <label for="data-source-select">Visualizar</label>
+                                <select id="data-source-select">
+                                    <option value="investments">Investimentos</option>
+                                    <option value="votes">Votos</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label for="filter-ano">Ano</label>
+                                <select id="filter-ano">
+                                    <option value="all">Todos os Anos</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label for="filter-area">Área</label>
+                                <select id="filter-area">
+                                    <option value="all">Todas as Áreas</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label for="filter-tipo">Tipo</label>
+                                <select id="filter-tipo">
+                                    <option value="all">Todos os Tipos</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Fixo -->
+                <div class="sidebar-footer">
+                    <button id="reset-filters" class="btn-reset">Limpar Filtros</button>
+                </div>
+            </aside>
+
+            <main class="map-container" id="map-container">
+                <div id="map-svg-layer"
+                    style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    <div id="loading">Carregando mapa...</div>
+                </div>
+                <!-- SVG will be injected here -->
+
+                <!-- Data Source Note Removed -->
+
+                <div class="zoom-controls">
+                    <button id="zoom-in" aria-label="Zoom In">+</button>
+                    <button id="zoom-out" aria-label="Zoom Out">-</button>
+                    <button id="zoom-reset" aria-label="Reset Zoom">⟲</button>
+                </div>
+                <div id="map-legend" class="legend-container hidden"></div>
+            </main>
+
+            <!-- Tooltip -->
+            <div id="tooltip" class="tooltip hidden"></div>
+
+            <!-- Details Sidebar/Modal (Right) -->
+            <aside id="sidebar" class="sidebar resizable">
+                <!-- Handle para redimensionar o sidebar -->
+                <div class="sidebar-resize-handle" id="sidebar-resize-handle"></div>
+                <div class="sidebar-header">
+                    <h2 id="city-name">Selecione uma cidade</h2>
+                    <div id="save-msg"></div>
+                    <button id="close-sidebar" aria-label="Fechar">×</button>
+                </div>
+
+                <!-- Sistema de Abas -->
+                <div class="sidebar-tabs">
+                    <!-- Abas Dados Campanha e Insights removidas a pedido do usuário -->
+                    <button class="tab-btn active" data-tab="info">Informações</button>
+                    <button class="tab-btn" data-tab="eleitorado">Eleitorado</button>
+                    <button class="tab-btn" data-tab="investimentos">Investimentos</button>
+                    <button class="tab-btn" data-tab="votos">Votos</button>
+                    <button class="tab-btn" data-tab="insights">Insights</button>
+                </div>
+
+                <!-- Abas de Campanha e Insights removidas a pedido do usuário -->
+
+                <!-- Aba: Informações -->
+                <div class="tab-content active" id="tab-info">
+                    <div class="sidebar-content" id="sidebar-details">
+                        <p id="city-desc" class="description">Clique no mapa para ver detalhes.</p>
+
+                        <!-- Campos de informação conforme especificação -->
+                        <div class="details-list">
+                            <div class="detail-row">
+                                <strong>Nome da cidade:</strong> <span id="stat-nome">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <strong>Gentílico:</strong> <span id="stat-gentilico">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <strong>Prefeito:</strong> <span id="stat-prefeito">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <strong>Partido político:</strong> <span id="stat-partido">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <strong>Habitantes:</strong> <span id="stat-habitantes">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <strong>Área:</strong> <span id="stat-area">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <strong>Densidade demográfica:</strong> <span id="stat-densidade">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <strong>IDHM:</strong> <span id="stat-idhm">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <strong>PIB per capita:</strong> <span id="stat-pib">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aba: Eleitorado -->
+                <div class="tab-content" id="tab-eleitorado">
+                    <div class="eleitorado-content">
+                        <!-- Total de Eleitores -->
+                        <div class="eleitorado-header">
+                            <div class="total-eleitores">
+                                <span class="total-label">Total de Eleitores</span>
+                                <span class="total-value" id="total-eleitores">-</span>
+                            </div>
+                        </div>
+
+                        <!-- Gráficos -->
+                        <div class="chart-section">
+                            <h4>👥 Gênero</h4>
+                            <div class="chart-container-small">
+                                <canvas id="chart-genero"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-section">
+                            <h4>📊 Faixa Etária</h4>
+                            <div class="chart-container">
+                                <canvas id="chart-idade"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-section">
+                            <h4>🎓 Grau de Instrução</h4>
+                            <div class="chart-container">
+                                <canvas id="chart-instrucao"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-section">
+                            <h4>💍 Estado Civil</h4>
+                            <div class="chart-container-small">
+                                <canvas id="chart-civil"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aba: Investimentos -->
+                <div class="tab-content" id="tab-investimentos">
+                    <div class="investimentos-content">
+                        <!-- Resumo -->
+                        <div class="investimentos-header">
+                            <div class="investimento-total-card">
+                                <span class="total-label">Total Investido</span>
+                                <span class="total-value" id="inv-total-cidade">R$ 0,00</span>
+                            </div>
+                            <div class="investimento-count-card">
+                                <span class="total-label">Nº de Investimentos</span>
+                                <span class="total-value" id="inv-count-cidade">0</span>
+                            </div>
+                        </div>
+
+                        <!-- Filtros da Cidade -->
+                        <div class="inv-filters-cidade">
+                            <select id="filter-inv-ano-cidade">
+                                <option value="all">Todos os Anos</option>
+                            </select>
+                            <select id="filter-inv-area-cidade">
+                                <option value="all">Todas as Áreas</option>
+                            </select>
+                            <select id="filter-inv-tipo-cidade">
+                                <option value="all">Todos os Tipos</option>
+                            </select>
+                        </div>
+
+                        <!-- Gráfico de Evolução da Cidade -->
+                        <div class="chart-section">
+                            <h4>📈 Evolução Anual</h4>
+                            <div class="chart-container">
+                                <canvas id="chart-inv-cidade"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Lista de Investimentos -->
+                        <div class="inv-list-section">
+                            <h4>📋 Detalhes dos Investimentos</h4>
+                            <div id="inv-list-cidade" class="inv-list">
+                                <p class="no-data">Nenhum investimento registrado para esta cidade.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aba: Votos Recebidos -->
+                <div class="tab-content" id="tab-votos">
+                    <div class="votos-content">
+                        <!-- Gráfico de Evolução de Votos -->
+                        <div class="chart-section">
+                            <h4>📊 Evolução Anual de Votos</h4>
+                            <div class="chart-container">
+                                <canvas id="chart-votos-evolucao"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Tabela Comparativo de Crescimento -->
+                        <div class="votos-table-section">
+                            <h4>📈 Comparativo de Crescimento</h4>
+                            <div class="votos-table-container">
+                                <table id="table-votos-crescimento" class="votos-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Período</th>
+                                            <th>Votos Anterior</th>
+                                            <th>Votos Atual</th>
+                                            <th>Variação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="4" class="no-data">Sem dados de comparação disponíveis.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Nova Tabela: Participação do Eleitorado -->
+                        <div class="votos-table-section">
+                            <h4>🗳️ Participação do Eleitorado</h4>
+                            <div class="votos-table-container">
+                                <table id="table-participacao-eleitorado" class="votos-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Ano</th>
+                                            <th>Votos Recebidos</th>
+                                            <th>Total de Eleitores</th>
+                                            <th>Participação (%)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="4" class="no-data">Sem dados disponíveis.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aba: Insights -->
+                <div class="tab-content" id="tab-insights">
+                    <div class="insights-tab-content">
+                        <!-- Filtros -->
+                        <div class="insights-filters">
+                            <div class="filter-row">
+                                <select id="filter-insights-ano">
+                                    <option value="all">Todos os Anos</option>
+                                </select>
+                                <select id="filter-insights-area">
+                                    <option value="all">Todas as Áreas</option>
+                                </select>
+                                <select id="filter-insights-tipo">
+                                    <option value="all">Todos os Tipos</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- KPI Cards Existentes -->
+                        <div class="insights-kpis-grid">
+
+                            <div class="insight-kpi-card">
+                                <span class="kpi-icon">🗳️</span>
+                                <span class="kpi-label">Total de Votos</span>
+                                <span class="kpi-value" id="kpi-total-votos">0</span>
+                            </div>
+                            <div class="insight-kpi-card">
+                                <span class="kpi-icon">📊</span>
+                                <span class="kpi-label">Total Investido</span>
+                                <span class="kpi-value" id="kpi-total-inv">R$ 0,00</span>
+                            </div>
+
+                            <!-- Novos KPIs de Analytics -->
+                            <div class="insight-kpi-card kpi-analytics">
+                                <span class="kpi-icon">💰</span>
+                                <span class="kpi-label">Custo por Voto (CPV)</span>
+                                <span class="kpi-value" id="kpi-cpv">-</span>
+                                <span class="kpi-unit">R$/voto</span>
+                            </div>
+                            <div class="insight-kpi-card kpi-analytics">
+                                <span class="kpi-icon">⚡</span>
+                                <span class="kpi-label">Eficiência da Conversão</span>
+                                <span class="kpi-value" id="kpi-eficiencia-conversao">-</span>
+                                <span class="kpi-unit">votos/R$</span>
+                            </div>
+                            <div class="insight-kpi-card kpi-analytics">
+                                <span class="kpi-icon">👤</span>
+                                <span class="kpi-label">Investimento por Eleitor</span>
+                                <span class="kpi-value" id="kpi-inv-por-eleitor">-</span>
+                                <span class="kpi-unit">R$/eleitor</span>
+                            </div>
+                        </div>
+
+                        <!-- Votos/Investimento por Ano -->
+
+
+                        <!-- Tabela Votos/Investimento -->
+                        <div class="insights-table-section">
+                            <h4>📋 Eficiência por Ano</h4>
+                            <div class="insights-table-container">
+                                <table id="table-eficiencia-ano" class="insights-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Ano</th>
+                                            <th>Votos</th>
+                                            <th>Investimento</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="3" class="no-data">Sem dados disponíveis.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Tabela % por Área -->
+                        <div class="insights-table-section">
+                            <h4>📊 Investimento por Área</h4>
+                            <div class="insights-table-container">
+                                <table id="table-inv-area" class="insights-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Área</th>
+                                            <th>Valor</th>
+                                            <th>% do Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="3" class="no-data">Sem dados disponíveis.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            </aside>
+        </div>
+
+        <!-- Chat Widget -->
+        <div class="chat-widget-container">
+            <button class="chat-toggle-btn" id="chat-toggle" aria-label="Abrir Chat IA">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+            </button>
+
+            <div class="chat-window" id="chat-window">
+                <div class="chat-header">
+                    <h3>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
+                            <path d="M12 2a10 10 0 0 1 10 10h-10V2z"></path>
+                            <path d="M12 12l9.5 5.5"></path>
+                        </svg>
+                        Paraná AI Assistant
+                    </h3>
+                    <button class="chat-close" id="chat-close">×</button>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message bot">
+                        Olá! Sou sua inteligência artificial geográfica. Pergunte sobre prefeitos, economia ou últimas
+                        notícias de qualquer cidade!
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Digite sua pergunta...">
+                    <button class="chat-send" id="chat-send">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+
+    <!-- Tabela Resumo Modal -->
+    <div id="summary-modal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3>Resumo Geral da Campanha</h3>
+                <button id="close-summary">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="table-actions">
+                    <button id="btn-export-excel" class="btn-primary">Exportar Excel</button>
+                </div>
+                <div class="table-container">
+                    <table id="summary-table">
+                        <thead>
+                            <tr>
+                                <th>Cidade</th>
+                                <th>Votos</th>
+                                <th>Invest. (R$)</th>
+                                <th>Conv. (%)</th>
+                                <th>R$/Voto</th>
+                                <th>R$/Pop</th>
+                                <th>Part. (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Instructions Modal -->
+    <div id="import-modal" class="modal hidden">
+        <div class="modal-content medium-modal">
+            <div class="modal-header">
+                <h3>Instruções de Importação</h3>
+                <button id="close-import">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-text">Para importar os dados corretamente, sua planilha Excel deve seguir
+                    <strong>estritamente</strong> o modelo abaixo (nomes das colunas e cidades):
+                </p>
+
+                <div class="example-table-container">
+                    <table class="example-table">
+                        <thead>
+                            <tr>
+                                <th>CIDADE</th>
+                                <th>ANO</th>
+                                <th>VOTOS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Curitiba</td>
+                                <td>2024</td>
+                                <td>15000</td>
+                            </tr>
+                            <tr>
+                                <td>Londrina</td>
+                                <td>2024</td>
+                                <td>8000</td>
+                            </tr>
+                            <tr>
+                                <td>Curitiba</td>
+                                <td>2020</td>
+                                <td>12000</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <ul class="modal-list">
+                    <li>As colunas devem se chamar <strong>"CIDADE"</strong>, <strong>"ANO"</strong> e
+                        <strong>"VOTOS"</strong>.
+                    </li>
+                    <li>O nome das cidades deve coincidir exatamente com o cadastro do sistema.</li>
+                    <li>Você pode importar múltiplos anos para a mesma cidade.</li>
+                    <li>Cidades com nomes incorretos ou não cadastrados serão ignoradas.</li>
+                </ul>
+
+                <div class="modal-footer-center">
+                    <button id="btn-confirm-import" class="btn-primary">SELECIONAR ARQUIVO</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Modal (Dashboard Global de Investimentos) -->
+    <div id="analytics-modal" class="modal hidden">
+        <div class="modal-content analytics-modal">
+            <div class="modal-header">
+                <h2>📈 Dashboard de Investimentos</h2>
+                <button id="close-analytics">×</button>
+            </div>
+            <div class="modal-body analytics-body">
+                <!-- Filtros Globais -->
+                <div class="analytics-filters">
+                    <div class="filter-group">
+                        <label>Cidade</label>
+                        <select id="filter-global-cidade">
+                            <option value="all">Todas as Cidades</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Ano</label>
+                        <select id="filter-global-ano">
+                            <option value="all">Todos os Anos</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Área</label>
+                        <select id="filter-global-area">
+                            <option value="all">Todas as Áreas</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Tipo</label>
+                        <select id="filter-global-tipo">
+                            <option value="all">Todas as Áreas</option>
+                        </select>
+                    </div>
+                    <button id="btn-apply-filters" class="btn-primary">Aplicar Filtros</button>
+                </div>
+
+                <!-- KPIs de Investimento -->
+                <div class="analytics-kpis-section">
+                    <h4>💰 Métricas de Investimento</h4>
+                    <div class="analytics-kpis">
+                        <div class="kpi-card">
+                            <span class="kpi-label">Total Investido</span>
+                            <span class="kpi-value" id="kpi-total">R$ 0,00</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-label">Nº de Investimentos</span>
+                            <span class="kpi-value" id="kpi-count">0</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-label">Cidades Beneficiadas</span>
+                            <span class="kpi-value" id="kpi-cities">0</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-label">Média por Investimento</span>
+                            <span class="kpi-value" id="kpi-avg">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPIs de Votos e Eficiência -->
+                <div class="analytics-kpis-section">
+                    <h4>🗳️ Métricas de Votos e Eficiência</h4>
+                    <div class="analytics-kpis">
+                        <div class="kpi-card kpi-votos">
+                            <span class="kpi-label">Total de Votos</span>
+                            <span class="kpi-value" id="kpi-global-votos">0</span>
+                        </div>
+                        <div class="kpi-card kpi-votos">
+                            <span class="kpi-label">Total de Eleitores</span>
+                            <span class="kpi-value" id="kpi-global-eleitores">0</span>
+                        </div>
+                        <div class="kpi-card kpi-cpv">
+                            <span class="kpi-label">Custo por Voto (CPV)</span>
+                            <span class="kpi-value" id="kpi-global-cpv">R$ 0,00</span>
+                            <span class="kpi-unit">R$/voto</span>
+                        </div>
+                        <div class="kpi-card kpi-eficiencia">
+                            <span class="kpi-label">Eficiência da Conversão</span>
+                            <span class="kpi-value" id="kpi-global-eficiencia">0,00</span>
+                            <span class="kpi-unit">votos/R$</span>
+                        </div>
+                        <div class="kpi-card kpi-inv-eleitor">
+                            <span class="kpi-label">Invest. por Eleitor</span>
+                            <span class="kpi-value" id="kpi-global-inv-eleitor">R$ 0,00</span>
+                            <span class="kpi-unit">R$/eleitor</span>
+                        </div>
+                        <div class="kpi-card kpi-participacao">
+                            <span class="kpi-label">Participação Média</span>
+                            <span class="kpi-value" id="kpi-global-participacao">0,00%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráficos -->
+                <div class="analytics-charts">
+                    <div class="chart-card chart-large">
+                        <h4>📈 Evolução Anual do Investimento</h4>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-global-evolucao"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>🏛️ Distribuição por Área</h4>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-global-area"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>📋 Distribuição por Tipo</h4>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-global-tipo"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Cidades -->
+                <div class="analytics-table">
+                    <h4>🏆 Top 10 Cidades por Investimento</h4>
+                    <table id="table-top-cities">
+                        <thead>
+                            <tr>
+                                <th>Cidade</th>
+                                <th>Total Investido</th>
+                                <th>Nº de Investimentos</th>
+                                <th>Principais Áreas</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Investment Import Instructions Modal -->
+    <div id="import-investments-modal" class="modal hidden">
+        <div class="modal-content medium-modal">
+            <div class="modal-header">
+                <h3>Importar Dados de Investimentos</h3>
+                <button id="close-import-investments">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-text">Para importar os dados de investimentos, sua planilha Excel deve conter as
+                    seguintes colunas:</p>
+
+                <div class="example-table-container">
+                    <table class="example-table">
+                        <thead>
+                            <tr>
+                                <th>CIDADE</th>
+                                <th>ANO</th>
+                                <th>VALOR INDICADO</th>
+                                <th>ÁREA</th>
+                                <th>TIPO</th>
+                                <th>DESCRIÇÃO</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Londrina</td>
+                                <td>2024</td>
+                                <td>5000</td>
+                                <td>Infraestrutura</td>
+                                <td>Bancada</td>
+                                <td>Teste</td>
+                            </tr>
+                            <tr>
+                                <td>Maringá</td>
+                                <td>2023</td>
+                                <td>10000</td>
+                                <td>Saúde</td>
+                                <td>Impositiva</td>
+                                <td>Custeio</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <ul class="modal-list">
+                    <li>A coluna <strong>"CIDADE"</strong> deve conter o nome exato da cidade.</li>
+                    <li>A coluna <strong>"ANO"</strong> deve conter o ano do investimento (ex: 2024).</li>
+                    <li>A coluna <strong>"VALOR INDICADO"</strong> deve conter o valor numérico.</li>
+                    <li>As colunas <strong>"ÁREA"</strong>, <strong>"TIPO"</strong> e <strong>"DESCRIÇÃO"</strong> são
+                        textos livres.</li>
+                </ul>
+
+                <div class="modal-footer-center">
+                    <button id="btn-confirm-import-investments" class="btn-primary">SELECIONAR ARQUIVO</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-confirm-modal" class="modal hidden">
+        <div class="modal-content delete-confirm-modal">
+            <div class="modal-body">
+                <div class="delete-warning">
+                    <p class="warning-title">ATENÇÃO: Esta ação é irreversível!</p>
+                    <p>Ao confirmar, você irá <strong>DELETAR permanentemente</strong>:</p>
+                    <ul>
+                        <li>🗃️ Todos os dados de <strong>INVESTIMENTOS</strong></li>
+                        <li>🗳️ Todos os dados de <strong>VOTOS</strong></li>
+                        <li>📊 Todas as métricas e cálculos derivados</li>
+                    </ul>
+                    <p class="restore-info">Os dados poderão ser restaurados importando novos arquivos Excel.</p>
+                </div>
+                <div class="delete-actions">
+                    <button id="btn-cancel-delete" class="btn-secondary">Cancelar</button>
+                    <button id="btn-confirm-delete" class="btn-danger">Confirmar Exclusão</button>
+                </div>
+            </div>
+        </div>
+    </div>
+`;
+
+export default function HomePage() {
+    return (
+        <>
+            <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: homeMarkup }} />
+            <Script
+                src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+                strategy="beforeInteractive"
+            />
+            <Script
+                src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"
+                strategy="beforeInteractive"
+            />
+            <Script src="/script.js" strategy="afterInteractive" />
+        </>
+    );
+}
