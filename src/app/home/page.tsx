@@ -31,6 +31,7 @@ const homeMarkup = `
         <header class="site-header">
             <div class="brand-container">
                 <h1>eParaná</h1>
+                <span class="brand-tagline">Atlas político e investimentos públicos</span>
             </div>
 
             <div class="header-tools">
