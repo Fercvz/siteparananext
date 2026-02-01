@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
+import { readFirstJson } from "@/lib/json-store";
 
-export const revalidate = 60;
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
@@ -19,20 +18,15 @@ export async function GET() {
     console.warn("Fallback IBGE: erro ao acessar o banco.", error);
   }
 
-  const fallbackPaths = [
-    path.join(process.cwd(), "data", "cidades_pr.json"),
-    path.join(process.cwd(), "public", "cidades_pr.json"),
-  ];
+  const payload = await readFirstJson<Record<string, unknown>>([
+    ["data", "cidades_pr.json"],
+    ["public", "cidades_pr.json"],
+  ]);
 
-  for (const fallbackPath of fallbackPaths) {
-    try {
-      const raw = await readFile(fallbackPath, "utf-8");
-      return NextResponse.json(JSON.parse(raw), {
-        headers: { "Cache-Control": "private, max-age=60" },
-      });
-    } catch (error) {
-      console.warn("Fallback IBGE: erro ao ler arquivo.", fallbackPath, error);
-    }
+  if (payload) {
+    return NextResponse.json(payload, {
+      headers: { "Cache-Control": "private, max-age=60" },
+    });
   }
 
   return NextResponse.json({ error: "Dados de cidades indisponiveis" }, { status: 500 });

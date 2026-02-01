@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
   title: "eParaná - Mapa Político Interativo",
   description:
     "Mapa interativo do Paraná com dados eleitorais, investimentos e análise estratégica para campanhas políticas.",
   manifest: "/manifest.json",
-  themeColor: "#22c55e",
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -18,6 +20,10 @@ export const metadata: Metadata = {
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
   },
+};
+
+export const viewport = {
+  themeColor: "#22c55e",
 };
 
 export default function RootLayout({
@@ -32,7 +38,6 @@ export default function RootLayout({
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
-        <meta name="theme-color" content="#22c55e" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="application-name" content="eParaná" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -57,14 +62,8 @@ export default function RootLayout({
           sizes="16x16"
           href="/icon-192.png"
         />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
       </head>
-      <body>
+      <body className={inter.className}>
         {children}
         <ServiceWorkerRegister />
       </body>

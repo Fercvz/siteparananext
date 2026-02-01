@@ -456,7 +456,6 @@ const homeMarkup = `
                     </div>
                 </div>
             </aside>
-            </aside>
         </div>
 
         <!-- Chat Widget -->

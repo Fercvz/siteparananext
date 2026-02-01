@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
+import { readJsonFile } from "@/lib/json-store";
 
 export const runtime = "nodejs";
 
@@ -32,8 +31,17 @@ export async function GET() {
     console.warn("Fallback Investments: erro ao acessar o banco.", error);
   }
 
-  const fallbackPath = path.join(process.cwd(), "data", "investments_data.json");
-  const raw = await readFile(fallbackPath, "utf-8");
-  const investments = JSON.parse(raw);
+  const investments = await readJsonFile<
+    {
+      id: string;
+      cityId: string;
+      cityName: string;
+      ano: number;
+      valor: number;
+      area?: string | null;
+      tipo?: string | null;
+      descricao?: string | null;
+    }[]
+  >("data", "investments_data.json");
   return NextResponse.json({ investments, count: investments.length });
 }

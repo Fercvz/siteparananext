@@ -107,6 +107,6 @@ self.addEventListener('sync', (event) => {
 });
 
 // Push notifications (future enhancement)
-self.addEventListener('push', (event) => {
+self.addEventListener('push', () => {
     console.log('[ServiceWorker] Push received');
 });

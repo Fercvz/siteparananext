@@ -1,10 +1,11 @@
-const fs = require("fs");
-const path = require("path");
-const { PrismaClient } = require("@prisma/client");
-
-const prisma = new PrismaClient();
+const fsPromise = import("node:fs");
+const pathPromise = import("node:path");
+const prismaPromise = import("@prisma/client");
+let prisma;
 
 async function loadJson(fileName) {
+  const fs = await fsPromise;
+  const path = await pathPromise;
   const filePath = path.join(__dirname, "..", "data", fileName);
   if (!fs.existsSync(filePath)) {
     return null;
@@ -14,6 +15,8 @@ async function loadJson(fileName) {
 }
 
 async function main() {
+  const { PrismaClient } = await prismaPromise;
+  prisma = new PrismaClient();
   const sources = [
     {
       name: "IBGE",
@@ -130,5 +133,7 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    if (prisma) {
+      await prisma.$disconnect();
+    }
   });

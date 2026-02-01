@@ -491,6 +491,10 @@ path.municipio.highlighted {
   stroke-width: 1.5px;
 }
 
+path.municipio.dimmed {
+  opacity: 0.25;
+}
+
 /* Zoom Controls */
 .zoom-controls {
   position: absolute;

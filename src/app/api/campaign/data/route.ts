@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
+import { readJsonFile } from "@/lib/json-store";
 
-export const revalidate = 60;
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
@@ -16,9 +15,11 @@ export async function GET() {
     console.warn("Fallback Campaign: erro ao acessar o banco.", error);
   }
 
-  const fallbackPath = path.join(process.cwd(), "data", "campaign_data.json");
-  const raw = await readFile(fallbackPath, "utf-8");
-  return NextResponse.json(JSON.parse(raw), {
+  const data = await readJsonFile<Record<string, { votes: number; money: number }>>(
+    "data",
+    "campaign_data.json"
+  );
+  return NextResponse.json(data, {
     headers: { "Cache-Control": "private, max-age=60" },
   });
 }

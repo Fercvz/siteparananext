@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { readFile, writeFile } from "fs/promises";
-import path from "path";
+import { readJsonFile, writeJsonFile } from "@/lib/json-store";
 import { requireAdmin } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -42,16 +41,17 @@ export async function POST(request: Request) {
       console.warn("Fallback Campaign Bulk: erro ao acessar o banco.", dbError);
     }
 
-    const fallbackPath = path.join(process.cwd(), "data", "campaign_data.json");
-    const raw = await readFile(fallbackPath, "utf-8");
-    const data = JSON.parse(raw);
+    const data = await readJsonFile<Record<string, { votes: number; money: number }>>(
+      "data",
+      "campaign_data.json"
+    );
     items.forEach((item: { city_slug: string; votes?: number; money?: number }) => {
       data[item.city_slug] = {
         votes: Number(item.votes || 0),
         money: Number(item.money || 0),
       };
     });
-    await writeFile(fallbackPath, JSON.stringify(data, null, 2));
+    await writeJsonFile(data, "data", "campaign_data.json");
 
     return NextResponse.json({ success: true, updates: items.length });
   } catch (error) {

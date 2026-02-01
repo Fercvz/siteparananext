@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
+import { readJsonFile } from "@/lib/json-store";
 
 export const runtime = "nodejs";
 
@@ -27,8 +26,9 @@ export async function GET() {
     console.warn("Fallback Votos: erro ao acessar o banco.", error);
   }
 
-  const fallbackPath = path.join(process.cwd(), "data", "votos_data.json");
-  const raw = await readFile(fallbackPath, "utf-8");
-  const votos = JSON.parse(raw);
+  const votos = await readJsonFile<Record<string, { ano: number; votos: number }[]>>(
+    "data",
+    "votos_data.json"
+  );
   return NextResponse.json({ votos, count: Object.keys(votos).length });
 }

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { readFile, writeFile } from "fs/promises";
-import path from "path";
+import { writeJsonFile } from "@/lib/json-store";
 import { requireAdmin } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -40,11 +39,8 @@ export async function POST(request: Request) {
       console.warn("Fallback Votos Save: erro ao acessar o banco.", dbError);
     }
 
-    const votosPath = path.join(process.cwd(), "data", "votos_data.json");
-    await writeFile(votosPath, JSON.stringify(votos, null, 2));
-
-    const campaignPath = path.join(process.cwd(), "data", "campaign_data.json");
-    await writeFile(campaignPath, JSON.stringify({}, null, 2));
+    await writeJsonFile(votos, "data", "votos_data.json");
+    await writeJsonFile({}, "data", "campaign_data.json");
 
     return NextResponse.json({ success: true, count: Object.keys(votos).length });
   } catch (error) {

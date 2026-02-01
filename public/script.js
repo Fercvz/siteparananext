@@ -1,9 +1,3 @@
-// Debugging Global Errors
-window.onerror = function (msg, url, line, col, error) {
-    alert("Error: " + msg + "\nLine: " + line);
-    return false;
-};
-
 const startApp = async () => {
     // alert("JS Loaded OK"); // Uncomment to verify basic load
     // DOM Elements - Globals for inner scope
@@ -12,7 +6,6 @@ const startApp = async () => {
     const closeSidebarBtn = document.getElementById('close-sidebar');
     const citySearch = document.getElementById('city-search');
     const datalist = document.getElementById('cities-list');
-    const themeToggle = document.getElementById('theme-toggle');
     const tooltip = document.getElementById('tooltip');
 
     // Controls
@@ -24,21 +17,15 @@ const startApp = async () => {
     const legendContainer = document.getElementById('map-legend');
 
     // Filters
-    const filterParty = document.getElementById('filter-party');
     const resetFiltersBtn = document.getElementById('reset-filters');
-    const highlightCount = document.getElementById('highlight-count');
 
     // Novos Filtros de Dados
     const dataSourceSelect = document.getElementById('data-source-select');
-    const filterAno = document.getElementById('filter-ano');
-    const filterArea = document.getElementById('filter-area');
-    const filterTipo = document.getElementById('filter-tipo');
 
     // Estado da Aplicação (Login removido/Aberto)
     // Estado da Aplicação
     let isLoggedIn = false;
     let isAdmin = false;
-    let authToken = 'admin-token-secure';
     let activeCityId = null;
     let citiesData = {};
     let campaignData = {};
@@ -47,10 +34,6 @@ const startApp = async () => {
     // Estrutura: { 'cidade-slug': [{ ano: 2024, votos: 15000 }, ...] }
     let votosData = {};
     let chartVotosEvolucao = null;
-    let chartVotosCrescimento = null;
-    let filters = {
-        party: 'all'
-    };
     let currentVisMode = 'none';
 
     // Cores dos Partidos (Oficiais/Aproximadas)
@@ -159,7 +142,6 @@ const startApp = async () => {
     // State duplicado removido
     // As variáveis globais já foram declaradas no topo do arquivo.
     let chartInstances = {};
-    // isLoggedIn e authToken já existem.
 
 
 
@@ -171,36 +153,29 @@ const startApp = async () => {
             // search reset
             const paths = svgElement.querySelectorAll('path');
             paths.forEach(p => {
-                p.classList.remove('dimmed', 'highlight-filter');
+                p.classList.remove('dimmed', 'highlighted');
                 p.style.display = ''; // Show all
             });
-            if (highlightCount) highlightCount.innerText = "399";
             return;
         }
 
         const lowerQuery = query.toLowerCase();
-        let matches = 0;
         const paths = svgElement.querySelectorAll('path');
 
         paths.forEach(path => {
             const city = citiesData[path.id];
             if (city && city.nome.toLowerCase().includes(lowerQuery)) {
                 path.classList.remove('dimmed');
-                path.classList.add('highlight-filter');
+                path.classList.add('highlighted');
                 path.style.display = '';
-                matches++;
-                if (matches === 1) {
-                    // can zoom to first
-                }
             } else {
                 path.classList.add('dimmed');
-                path.classList.remove('highlight-filter');
+                path.classList.remove('highlighted');
                 // Optional: hide non-matches or just dim? 
                 // path.style.display = 'none'; // Keeping them visible but dimmed is better for context
             }
         });
 
-        if (highlightCount) highlightCount.innerText = matches;
     }
 
     async function checkAdminAccess() {
@@ -238,15 +213,13 @@ const startApp = async () => {
         mapContainer = document.getElementById('map-container');
 
         injectMockData(); // Ensure complete data coverage
-        initFilters();    // Populate dropdowns and setup ranges
         initMapInteractions();
         initSearch(); // Call improved search init
         setupZoomPan();
         initTabs();       // Sistema de abas
         loadEleitoradoData(); // Carrega dados eleitorais
 
-        // Novos Inicializadores de Campanha/Login
-        // initLogin(); // Removed login requirement
+        // Novos Inicializadores de Campanha
         await loadCampaignGlobalStats();
         initDraggableModals();
 
@@ -288,7 +261,7 @@ const startApp = async () => {
             toggleBtn.classList.remove('active');
             toggleBtn.innerHTML = '☰';
             toggleBtn.setAttribute('aria-label', 'Abrir Filtros');
-            if (mobileOverlay) mobileOverlay.classList.remove('visible');
+            if (mobileOverlay) mobileOverlay.classList.remove('active');
         }
 
         // Function to open the sidebar
@@ -297,7 +270,7 @@ const startApp = async () => {
             toggleBtn.classList.add('active');
             toggleBtn.innerHTML = '☰'; // Keep hamburger icon (no X)
             toggleBtn.setAttribute('aria-label', 'Fechar Filtros');
-            if (mobileOverlay) mobileOverlay.classList.add('visible');
+            if (mobileOverlay) mobileOverlay.classList.add('active');
         }
 
         // Toggle sidebar when button is clicked
@@ -372,7 +345,7 @@ const startApp = async () => {
                 }
             }
 
-            function dragEnd(e) {
+            function dragEnd() {
                 initialX = currentX;
                 initialY = currentY;
                 isDragging = false;
@@ -398,91 +371,15 @@ const startApp = async () => {
     }
 
     // --- Auth & Campaign Logic ---
-    function initLogin() {
-        // Legado - Função mantida vazia para evitar erros de referência se chamadas existirem
-    }
-
-    async function performLogin() {
-        // Legado - Função mantida vazia
-    }
-
     async function loadCampaignGlobalStats() {
         try {
             const res = await fetch('/api/campaign/data');
             if (res.ok) {
                 campaignData = await res.json(); // Atualiza cache
 
-                let totalVotes = 0;
-                let totalMoney = 0;
-
-                Object.values(campaignData).forEach(c => {
-                    totalVotes += (c.votes || 0);
-                    totalMoney += (c.money || 0);
-                });
-
-                const votesEl = document.getElementById('global-votes');
-                const moneyEl = document.getElementById('global-money');
-                if (votesEl) votesEl.innerText = totalVotes.toLocaleString('pt-BR');
-                if (moneyEl) moneyEl.innerText = totalMoney.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             }
         } catch (e) {
             console.warn("Erro ao carregar stats globais:", e);
-        }
-    }
-
-    function updateSidebarCampaign(slug) {
-        if (!isLoggedIn) return;
-
-        document.getElementById('save-msg').innerText = "";
-
-        // Preencher dados se existirem no cache
-        const data = campaignData[slug] || { votes: 0, money: 0 };
-
-        const inputVotes = document.getElementById('input-votes');
-        const inputMoney = document.getElementById('input-money');
-
-        if (inputVotes) inputVotes.value = data.votes || 0;
-        if (inputMoney) inputMoney.value = data.money || 0;
-    }
-
-    async function saveCampaignData() {
-        if (!activeCityId) return;
-
-        const votes = parseInt(document.getElementById('input-votes').value) || 0;
-        const money = parseFloat(document.getElementById('input-money').value) || 0;
-        const msg = document.getElementById('save-msg');
-
-        try {
-            const res = await fetch('/api/campaign/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    city_slug: activeCityId,
-                    votes: votes,
-                    money: money
-                })
-            });
-
-            if (res.ok) {
-                msg.style.color = 'green';
-                msg.innerText = "Salvo com sucesso!";
-
-                // Atualiza cache e totais
-                campaignData[activeCityId] = { votes, money };
-                loadCampaignGlobalStats();
-
-                // Atualiza Insights e Mapa
-                if (typeof updateInsights === 'function') {
-                    updateInsights(activeCityId);
-                }
-                updateMapDisplay();
-            } else {
-                msg.style.color = 'red';
-                msg.innerText = "Erro ao salvar.";
-            }
-        } catch (e) {
-            msg.style.color = 'red';
-            msg.innerText = "Erro de conexão.";
         }
     }
 
@@ -608,32 +505,16 @@ const startApp = async () => {
         });
     }
 
-    function initFilters() {
-        // Populate Party Dropdown Dynamically
-        if (filterParty) {
-            filterParty.innerHTML = '<option value="all">Todos</option>';
-            PARTIES.sort().forEach(party => {
-                const opt = document.createElement('option');
-                opt.value = party;
-                opt.innerText = party;
-                filterParty.appendChild(opt);
-            });
-        }
-    }
-
-
     // --- 2. Unified Map Display Logic ---
     function updateMapDisplay() {
         if (!svgElement) return;
         const paths = svgElement.querySelectorAll('path');
-        let matchCount = 0;
 
         // Prepare Visualization Data
         let minVal = Infinity, maxVal = -Infinity;
         let dataField = null;
         let useCampaignData = false;
         let campaignField = null;
-        let filteredCities = [];
 
         if (currentVisMode === 'heatmap-pop') {
             dataField = 'habitantes';
@@ -674,11 +555,7 @@ const startApp = async () => {
             const city = citiesData[path.id];
             if (!city) return;
 
-            // 1. Check Filters
-            let isMatch = true;
-            if (filters.party !== 'all' && city.partido !== filters.party) isMatch = false;
-
-            // 2. Apply Base Visualization Color
+            // 1. Apply Base Visualization Color
             let fill = '';
             if (currentVisMode === 'party') {
                 fill = PARTY_COLORS[city.partido] || '#ccc';
@@ -732,49 +609,24 @@ const startApp = async () => {
                 }
             }
 
-            // 3. Apply Styles to DOM
+            // 2. Apply Styles to DOM
             if (fill) {
                 path.style.fill = fill;
             } else {
                 path.style.fill = ''; // Revert to CSS default
             }
-
-            if (isMatch) {
-                path.classList.remove('dimmed');
-                path.classList.add('highlight-filter');
-                matchCount++;
-                filteredCities.push({
-                    nome: city.nome,
-                    partido: city.partido
-                });
-            } else {
-                path.classList.add('dimmed');
-                path.classList.remove('highlight-filter');
-            }
         });
 
-        // Ordena cidades
-        filteredCities.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-
         // Update UI
-        if (highlightCount) highlightCount.innerText = matchCount;
-        updateLegend(minVal, maxVal, (dataField || campaignField), filteredCities);
+        updateLegend(minVal, maxVal, (dataField || campaignField));
 
         if (currentVisMode !== 'none') {
-            mapContainer.classList.add('visualizing');
             // Force Light Background as requested
             mapContainer.style.backgroundColor = '#e2e8f0';
         }
         else {
-            mapContainer.classList.remove('visualizing');
             mapContainer.style.backgroundColor = ''; // Revert to CSS default
         }
-        // Prevent background change (User request #4)
-        // mapContainer.style.backgroundColor = ''; // Reset if needed, or rely on CSS not handling .visualizing for BG anymore
-
-        const hasFilters = filters.party !== 'all';
-        if (hasFilters) mapContainer.classList.add('filtering');
-        else mapContainer.classList.remove('filtering');
     }
 
     // Heatmap: "Turbo-like" Rainbow spectrum for high contrast
@@ -801,7 +653,7 @@ const startApp = async () => {
         return `rgb(${r},${g},${b})`;
     }
 
-    function updateLegend(min, max, dataField, filteredCities = []) {
+    function updateLegend(min, max, dataField) {
         // Find or create legend container in Left Sidebar
         let leftSidebarLegend = document.getElementById('sidebar-legend-container');
         if (!leftSidebarLegend) {
@@ -963,20 +815,6 @@ const startApp = async () => {
             leftSidebarLegend.classList.remove('hidden');
         }
 
-        // Logic for Filtered Cities List (Show when filtering by party)
-        if (filters.party !== 'all') {
-            // Re-calculate filtered cities if empty (fallback)
-            if (filteredCities.length === 0) {
-                Object.values(citiesData).forEach(city => {
-                    if (city.partido === filters.party) filteredCities.push(city);
-                });
-                filteredCities.sort((a, b) => a.nome.localeCompare(b.nome));
-            }
-            updateFilteredCitiesList(filteredCities);
-        } else {
-            const existingList = document.getElementById('filtered-cities-panel');
-            if (existingList) existingList.remove();
-        }
     }
 
     function toggleCampaignVisualizations(show) {
@@ -1017,66 +855,9 @@ const startApp = async () => {
         }
     }
 
-    // Função para mostrar lista de cidades filtradas
-    function updateFilteredCitiesList(cities) {
-        let panel = document.getElementById('filtered-cities-panel');
-
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.id = 'filtered-cities-panel';
-            // Styling directly here for robustness, or usually in CSS
-            panel.style.position = 'absolute';
-            panel.style.top = '70px'; // Below header
-            panel.style.left = '320px'; // Right of sidebar
-            panel.style.width = '250px';
-            panel.style.background = 'var(--card-bg, white)';
-            panel.style.border = '1px solid var(--border-color, #ccc)';
-            panel.style.borderRadius = '8px';
-            panel.style.padding = '15px';
-            panel.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-            panel.style.zIndex = '900';
-            panel.style.maxHeight = 'calc(100vh - 100px)';
-            panel.style.display = 'flex';
-            panel.style.flexDirection = 'column';
-
-            // Responsive adjust
-            if (window.innerWidth <= 1024) {
-                panel.style.left = '20px';
-                panel.style.width = 'calc(100% - 40px)';
-                panel.style.top = '140px'; // Lower
-            }
-
-            document.body.appendChild(panel);
-        }
-
-        const partyColor = PARTY_COLORS[filters.party] || '#666';
-
-        panel.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid ${partyColor};">
-                <strong style="font-size:1rem; color:var(--text-primary, #333);">Cidades - ${filters.party}</strong>
-                <span style="background:${partyColor}; color:white; padding:2px 8px; border-radius:12px; font-size:0.85rem;">${cities.length}</span>
-                <button onclick="document.getElementById('filtered-cities-panel').remove()" style="background:none; border:none; cursor:pointer; font-size:1.2rem; color:var(--text-secondary);">&times;</button>
-            </div>
-            <div style="max-height: 400px; overflow-y: auto;">
-                <ul style="list-style:none; padding:0; margin:0; font-size:0.9rem;">
-                ${cities.map(c => `
-                    <li style="padding:6px 0; border-bottom:1px solid var(--border-color, #f0f0f0); cursor:pointer; transition:background 0.2s; color:var(--text-primary, #333);" 
-                        onmouseover="this.style.background='var(--bg-secondary, #f9fafb)'; this.style.color='var(--accent-color, #2563eb)'" 
-                        onmouseout="this.style.background='transparent'; this.style.color='var(--text-primary, #333)'"
-                        onclick="document.getElementById('city-search').value='${c.nome}'; document.getElementById('city-search').dispatchEvent(new Event('change'));">
-                        ${c.nome}
-                    </li>
-                `).join('')}
-                </ul>
-            </div>
-        `;
-    }
-
-
     // --- 3. Events ---
-    function initMapInteractions() {
-        if (!svgElement) return;
-        const paths = svgElement.querySelectorAll('path');
+    function selectCity(id) {
+        if (!id) return;
 
         if (activeCityId) {
             const prev = document.getElementById(activeCityId);
@@ -1088,6 +869,21 @@ const startApp = async () => {
 
         populateSidebar(id);
         if (sidebar) sidebar.classList.add('open');
+    }
+
+    function initMapInteractions() {
+        if (!svgElement) return;
+        const paths = svgElement.querySelectorAll('path');
+
+        paths.forEach(path => {
+            path.addEventListener('click', () => selectCity(path.id));
+            path.addEventListener('mousemove', (e) => {
+                const city = citiesData[path.id];
+                const label = city && city.nome ? city.nome : path.id;
+                showTooltip(label, e);
+            });
+            path.addEventListener('mouseleave', hideTooltip);
+        });
     }
 
     function populateSidebar(id) {
@@ -1177,11 +973,6 @@ const startApp = async () => {
         set('stat-pib', pib);
         // Atualiza Aba de Eleitorado
         updateEleitoradoTab(id);
-
-        // Atualiza Aba de Campanha (Admin)
-        if (typeof updateSidebarCampaign === 'function') {
-            updateSidebarCampaign(id);
-        }
 
         // Atualiza Aba Insights (Admin)
         if (isLoggedIn && typeof updateInsights === 'function') {
@@ -1683,14 +1474,7 @@ const startApp = async () => {
         }
     }
 
-    // Theme & Tooltip
-    if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-            document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
-            themeToggle.innerText = document.body.dataset.theme === 'dark' ? '🌙' : '☀️';
-        });
-    }
-
+    // Tooltip
     function showTooltip(txt, e) {
         tooltip.innerText = txt;
         tooltip.classList.remove('hidden');
@@ -1725,10 +1509,6 @@ const startApp = async () => {
         if (normName.startsWith('santa ')) variants.add('santo ' + normName.slice(6));
         if (normName.startsWith('santo ')) variants.add('santa ' + normName.slice(6));
         return Array.from(variants);
-    }
-
-    function escapeRegExp(value) {
-        return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     function inferCityIdFromText(text) {
@@ -1801,7 +1581,6 @@ const startApp = async () => {
         const chatClose = document.getElementById('chat-close');
         const chatInput = document.getElementById('chat-input');
         const chatSend = document.getElementById('chat-send');
-        const chatMessages = document.getElementById('chat-messages');
 
         if (!chatToggle || !chatWindow) return;
 
@@ -2074,10 +1853,10 @@ ${cityInvestments || ''}
                     try {
                         const errJson = await response.json();
                         errText = errJson?.error || "";
-                    } catch (e) {
+                    } catch {
                         try {
                             errText = await response.text();
-                        } catch (e2) {
+                        } catch {
                             errText = "";
                         }
                     }
@@ -2562,7 +2341,7 @@ ${cityInvestments || ''}
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ votos: votosData })
-                    }).catch(e => console.log('Backend votos save optional'));
+                    }).catch(() => console.log('Backend votos save optional'));
 
                     if (res.ok) {
                         const totalCities = Object.keys(votosData).length;
@@ -2675,7 +2454,7 @@ ${cityInvestments || ''}
                     populateInvestmentFilters();
                 }
             }
-        } catch (error) {
+        } catch {
             console.log('Servidor não disponível para carregar investimentos');
         }
     }
@@ -3570,7 +3349,7 @@ ${cityInvestments || ''}
                     });
                 }
             }
-        } catch (error) {
+        } catch {
             console.log('Servidor não disponível para carregar votos');
         }
     }
@@ -3792,7 +3571,6 @@ ${cityInvestments || ''}
     // INSIGHTS TAB SYSTEM
     // ============================================
 
-    let chartVotosPorInv = null;
     let chartDistArea = null;
     let insightsFilters = {
         ano: 'all',
@@ -3868,8 +3646,6 @@ ${cityInvestments || ''}
     function updateInsightsTab(cityId) {
         const cityData = citiesData[cityId];
         if (!cityData) return;
-
-        const habitantes = cityData.habitantes || 0;
 
         // Get city investments with filters applied
         let cityInvestments = investmentsData.filter(i => i.cityId === cityId);
@@ -3978,93 +3754,6 @@ ${cityInvestments || ''}
         // Update % por Área
         updateDistribuicaoAreaChart(cityInvestments, totalInvestido);
         updateAreaTable(cityInvestments, totalInvestido);
-    }
-
-    // Chart: Votos por R$ Investido (por Ano)
-    function updateEficienciaChart(investments, votos) {
-        const canvas = document.getElementById('chart-votos-por-inv');
-        if (!canvas) return;
-
-        // Group investments by year
-        const invByYear = {};
-        investments.forEach(i => {
-            if (!invByYear[i.ano]) invByYear[i.ano] = 0;
-            invByYear[i.ano] += i.valor || 0;
-        });
-
-        // Group votes by year
-        const votosByYear = {};
-        votos.forEach(v => {
-            votosByYear[v.ano] = v.votos || 0;
-        });
-
-        // Find all years that have both data
-        const allYears = [...new Set([...Object.keys(invByYear), ...Object.keys(votosByYear)])]
-            .map(Number)
-            .sort((a, b) => a - b);
-
-        // Calculate efficiency (votos per R$1000)
-        const labels = [];
-        const data = [];
-
-        allYears.forEach(ano => {
-            const inv = invByYear[ano] || 0;
-            const vot = votosByYear[ano] || 0;
-
-            if (inv > 0 || vot > 0) {
-                labels.push(ano.toString());
-                // Votos per R$1000 invested
-                const efficiency = inv > 0 ? (vot / inv) * 1000 : 0;
-                data.push(efficiency);
-            }
-        });
-
-        if (chartVotosPorInv) {
-            chartVotosPorInv.destroy();
-        }
-
-        if (labels.length === 0) {
-            canvas.parentElement.innerHTML = '<p class="no-data" style="padding: 2rem; text-align: center;">Sem dados para calcular eficiência.</p>';
-            return;
-        }
-
-        chartVotosPorInv = new Chart(canvas, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Votos por R$1.000',
-                    data: data,
-                    backgroundColor: 'rgba(37, 99, 235, 0.7)',
-                    borderColor: 'rgba(37, 99, 235, 1)',
-                    borderWidth: 1,
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function (context) {
-                                return `${context.parsed.y.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} votos/R$1.000`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Votos/R$1.000'
-                        }
-                    }
-                }
-            }
-        });
     }
 
     // Table: Eficiência por Ano
@@ -4510,8 +4199,6 @@ ${cityInvestments || ''}
             activeFilters = { ano: 'all', area: 'all', tipo: 'all' };
 
             // Reseta UI Elements
-            if (filterParty) filterParty.value = 'all';
-
             // Se estivermos vendo campanha, reseta filtros mas mantém modo
             if (visModeSelect && visModeSelect.value === 'campaign-data') {
                 if (filterAnoEl) filterAnoEl.value = 'all';
@@ -4563,7 +4250,7 @@ ${cityInvestments || ''}
                     });
                 }
             }
-        } catch (error) {
+        } catch {
             console.log('Erro ao carregar investimentos para filtros');
         }
     }
